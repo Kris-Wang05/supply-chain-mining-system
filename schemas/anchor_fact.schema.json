@@ -7,20 +7,41 @@
   "required": [
     "fact",
     "number",
+    "unit",
+    "timeframe",
     "date",
     "source_url",
+    "source_excerpt",
     "source_tier",
+    "fact_type",
+    "forward_commitment",
     "mainline",
     "confidence"
   ],
   "properties": {
     "fact": { "type": "string", "minLength": 1 },
     "number": { "type": "string", "minLength": 1 },
+    "unit": { "type": "string", "minLength": 1 },
+    "timeframe": { "type": "string", "minLength": 1 },
     "date": { "type": "string", "minLength": 1 },
     "source_url": { "type": "string", "minLength": 1 },
+    "source_excerpt": { "type": "string", "minLength": 1 },
     "source_tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "fact_type": {
+      "type": "string",
+      "enum": [
+        "capacity_commitment",
+        "quantity_commitment",
+        "capex_budget",
+        "signed_contract",
+        "backlog",
+        "product_roadmap",
+        "result_context",
+        "unverified"
+      ]
+    },
+    "forward_commitment": { "type": "boolean" },
     "mainline": { "type": "string", "minLength": 1 },
     "confidence": { "type": "string", "enum": ["high", "med", "low"] }
   }
 }
-

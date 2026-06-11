@@ -58,6 +58,7 @@ $env:PYTHONPATH="src"; python -m unittest discover -s tests
 {
   "ticker": "",
   "exchange": "",
+  "region": "US",
   "node": "",
   "transmission_type": "",
   "order_inevitability": 1,
@@ -69,7 +70,7 @@ $env:PYTHONPATH="src"; python -m unittest discover -s tests
   },
   "kill_rules_triggered": [],
   "price_history_note": "",
-  "rating": "C",
+  "rating": "pending",
   "mispricing_hypothesis": ""
 }
 ```
@@ -82,3 +83,4 @@ $env:PYTHONPATH="src"; python -m unittest discover -s tests
 - 大额合同必须读到原文或可信披露。
 - 稀释史、关联方订单、无残值楼层是优先红旗。
 - 写不出“市场为什么还没定价它”的假说，A/B 级候选自动降级。
+- 任何核心字段仍是 `unknown`、`[unverified]`、`需验证`、`需拆` 或 `TBD`，只能给 `pending`，不能给字母评级。

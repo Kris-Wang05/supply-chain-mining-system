@@ -10,7 +10,7 @@ Transmission = Literal[
     "capacity-gap",
     "competitive-bid",
 ]
-Rating = Literal["A", "B", "C", "坐标", "出局"]
+Rating = Literal["A", "B", "C", "pending", "坐标", "出局"]
 TestResult = Literal["pass", "fail", "unknown"]
 
 
@@ -33,6 +33,7 @@ class CoverageTest:
 class Candidate:
     ticker: str
     exchange: str
+    region: Literal["US", "EU", "coordinate"]
     node: str
     transmission_type: Transmission
     order_inevitability: int
@@ -48,6 +49,7 @@ class Candidate:
         candidate = cls(
             ticker=_required_str(data, "ticker"),
             exchange=_required_str(data, "exchange"),
+            region=_enum_value(data, "region", {"US", "EU", "coordinate"}),
             node=_required_str(data, "node"),
             transmission_type=_enum_value(
                 data,
@@ -65,7 +67,7 @@ class Candidate:
             coverage_test=CoverageTest.from_dict(_required_dict(data, "coverage_test")),
             kill_rules_triggered=list(data.get("kill_rules_triggered", [])),
             price_history_note=str(data.get("price_history_note", "")),
-            rating=_enum_value(data, "rating", {"A", "B", "C", "坐标", "出局"}),
+            rating=_enum_value(data, "rating", {"A", "B", "C", "pending", "坐标", "出局"}),
             mispricing_hypothesis=str(data.get("mispricing_hypothesis", "")),
         )
         candidate.validate()
@@ -76,6 +78,21 @@ class Candidate:
             raise ValueError("A/B candidates require mispricing_hypothesis")
         if self.rating == "出局" and not self.kill_rules_triggered:
             raise ValueError("Rejected candidates should list kill_rules_triggered")
+        if self.rating in {"A", "B", "C"} and self._has_pending_marker():
+            raise ValueError("Candidates with pending or unverified fields must use rating=pending")
+
+    def _has_pending_marker(self) -> bool:
+        marker_values = [
+            self.purity_pct,
+            self.price_history_note,
+            self.mispricing_hypothesis,
+            self.coverage_test.coverage_density,
+            self.coverage_test.rerating_check,
+            self.coverage_test.keyword_density,
+            *self.kill_rules_triggered,
+        ]
+        markers = ("unknown", "[unverified]", "需验证", "需拆", "tbd", "pending source")
+        return any(any(marker in value.lower() for marker in markers) for value in marker_values)
 
 
 def _required_str(data: dict[str, Any], key: str) -> str:
@@ -105,4 +122,3 @@ def _enum_value(data: dict[str, Any], key: str, allowed: set[str]) -> Any:
         allowed_values = ", ".join(sorted(allowed))
         raise ValueError(f"{key} must be one of: {allowed_values}")
     return value
-

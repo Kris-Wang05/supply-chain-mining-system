@@ -7,6 +7,7 @@
   "required": [
     "ticker",
     "exchange",
+    "region",
     "node",
     "transmission_type",
     "order_inevitability",
@@ -19,6 +20,7 @@
   "properties": {
     "ticker": { "type": "string", "minLength": 1 },
     "exchange": { "type": "string", "minLength": 1 },
+    "region": { "type": "string", "enum": ["US", "EU", "coordinate"] },
     "node": { "type": "string", "minLength": 1 },
     "transmission_type": {
       "type": "string",
@@ -47,8 +49,7 @@
       "items": { "type": "string" }
     },
     "price_history_note": { "type": "string" },
-    "rating": { "type": "string", "enum": ["A", "B", "C", "坐标", "出局"] },
+    "rating": { "type": "string", "enum": ["A", "B", "C", "pending", "坐标", "出局"] },
     "mispricing_hypothesis": { "type": "string" }
   }
 }
-
