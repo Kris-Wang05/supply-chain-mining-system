@@ -25,10 +25,23 @@ Stage 0 主线登记 -> Stage 1 锚点事实 -> Stage 2 工序分解 -> Stage 3 
 
 - `docs/supply_chain_mining_system_v1.md`：原始 SOP。
 - `docs/agent_sop.md`：面向 Agent 的运行说明。
+- `docs/operating_playbook.md`：单阶段任务卡、质检纪律和最佳使用方式。
 - `prompts/codex_stage_0_5.md`：让 Codex 执行 Stage 0-5 的提示词模板。
 - `schemas/`：阶段输出的 JSON Schema。
 - `src/supply_chain_mining/`：最小 Python CLI 和数据模型。
 - `tests/`：轻量测试。
+
+## 最佳使用方式
+
+不要一次性问“这条主线有哪些好股票”。默认做法是一次只跑一张任务卡：
+
+1. 先跑 Stage 1 锚点采集。
+2. 用户抽查来源，通过后写入 repo。
+3. 再用已审核锚点跑 Stage 2 工序分解。
+4. 对单个节点跑 Stage 3-4 标的枚举和定价检验。
+5. 对单只候选跑 Stage 5 红旗尽调。
+
+详见 `docs/operating_playbook.md`。
 
 ## 快速开始
 
