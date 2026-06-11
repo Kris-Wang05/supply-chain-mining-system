@@ -5,12 +5,16 @@
     "confirmed": false,
     "scan_file": "output/scans/2026-06-11_monthly.md",
     "source_url": "https://www.wsj.com/business/earnings/applied-materials-profit-sales-rise-on-demand-for-semiconductor-equipment-af67d1e8",
+    "secondary_confirmation_urls": [
+      "https://www.thetimes.com/business/companies-markets/article/applied-materials-beats-wall-street-forecasts-ai-lxtp9kgn2",
+      "https://www.investors.com/news/technology/amat-stock-applied-materials-fiscal-q2-2026-earnings/"
+    ],
     "source_date": "2026-05-14",
     "source_tier": 3,
-    "original_excerpt": "revenue of $8.45 billion to $9.45 billion",
-    "unit_type": "美元金额",
+    "original_excerpt": "Applied Materials now forecasts its semiconductor equipment business will grow more than 30% this calendar year, Dickerson said, up from its prior forecast for an increase of more than 20%.",
+    "unit_type": "百分比型",
     "mainline": "半导体设备",
-    "interpretation": "Applied Materials 给出当前财季收入区间指引。",
+    "interpretation": "全年度分部增长指引从超过20%上调至超过30%,属于战略性新承诺; 官方源不可达,由 WSJ、The Times、IBD 交叉确认。",
     "change_type": "新增",
     "created_at": "2026-06-11"
   }
