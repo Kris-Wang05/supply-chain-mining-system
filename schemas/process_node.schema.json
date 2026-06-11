@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/process_node.schema.json",
+  "title": "ProcessNode",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "anchor_fact_id",
+    "node",
+    "transmission",
+    "scaling",
+    "order_inevitability"
+  ],
+  "properties": {
+    "anchor_fact_id": { "type": "string", "minLength": 1 },
+    "node": { "type": "string", "minLength": 1 },
+    "transmission": {
+      "type": "string",
+      "enum": [
+        "designed-in",
+        "sole-source",
+        "per-unit-consumable",
+        "capacity-gap",
+        "competitive-bid"
+      ]
+    },
+    "scaling": { "type": "string", "enum": ["linear", "superlinear", "optional"] },
+    "order_inevitability": { "type": "integer", "minimum": 1, "maximum": 5 }
+  }
+}
+

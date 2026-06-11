@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/candidate.schema.json",
+  "title": "Candidate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ticker",
+    "exchange",
+    "node",
+    "transmission_type",
+    "order_inevitability",
+    "purity_pct",
+    "coverage_test",
+    "kill_rules_triggered",
+    "price_history_note",
+    "rating"
+  ],
+  "properties": {
+    "ticker": { "type": "string", "minLength": 1 },
+    "exchange": { "type": "string", "minLength": 1 },
+    "node": { "type": "string", "minLength": 1 },
+    "transmission_type": {
+      "type": "string",
+      "enum": [
+        "designed-in",
+        "sole-source",
+        "per-unit-consumable",
+        "capacity-gap",
+        "competitive-bid"
+      ]
+    },
+    "order_inevitability": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "purity_pct": { "type": "string", "minLength": 1 },
+    "coverage_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["coverage_density", "rerating_check", "keyword_density"],
+      "properties": {
+        "coverage_density": { "type": "string", "enum": ["pass", "fail", "unknown"] },
+        "rerating_check": { "type": "string", "enum": ["pass", "fail", "unknown"] },
+        "keyword_density": { "type": "string", "enum": ["pass", "fail", "unknown"] }
+      }
+    },
+    "kill_rules_triggered": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "price_history_note": { "type": "string" },
+    "rating": { "type": "string", "enum": ["A", "B", "C", "坐标", "出局"] },
+    "mispricing_hypothesis": { "type": "string" }
+  }
+}
+

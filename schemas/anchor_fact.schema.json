@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/anchor_fact.schema.json",
+  "title": "AnchorFact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "fact",
+    "number",
+    "date",
+    "source_url",
+    "source_tier",
+    "mainline",
+    "confidence"
+  ],
+  "properties": {
+    "fact": { "type": "string", "minLength": 1 },
+    "number": { "type": "string", "minLength": 1 },
+    "date": { "type": "string", "minLength": 1 },
+    "source_url": { "type": "string", "minLength": 1 },
+    "source_tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "mainline": { "type": "string", "minLength": 1 },
+    "confidence": { "type": "string", "enum": ["high", "med", "low"] }
+  }
+}
+
