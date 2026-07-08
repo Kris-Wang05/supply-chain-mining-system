@@ -1,75 +1,64 @@
-# Discovery Engine — Codex 执行任务卡
+# Discovery Engine — Codex 执行任务卡 v2
 
-沿用主仓库 task-card-first 纪律：一次只做一张卡，不做端到端。
-每张卡的产出必须通过 `python -m discovery_engine.cli validate-candidates` 校验后才算完成。
+**先读 `docs/architecture.md`**——模块契约和不变量在那里，冻结区的东西不许改。
+核心架构（模型、门槛、状态机、存储、EDGAR 8-K/Form 4 采集器、转换器、周报、CLI）
+**已经实现并有 42 个测试**，你的工作是运行、修补和扩展，不是重新设计。
 
-运行环境：把 `discovery-engine/src` 加入 PYTHONPATH。测试命令：
-
-```bash
-cd discovery-engine
-python -m pytest tests -q
-```
+一次只做一张卡。每张卡完成的标准：`python -m pytest` 全绿 + 卡内验收项通过。
 
 ---
 
 ## Task Card D0：环境验证（先做这个）
 
-1. 运行测试套件，确认全绿。
-2. 运行 `python -m discovery_engine.cli template --ticker TEST`，确认模板输出。
-3. 把模板的空字段填上占位值（company/exchange 等填 "TEST"，日期填今天），写入一行 JSONL，
-   跑 `validate-candidates`，确认含 `[unverified]` 的记录以 status=lead 通过校验。
-   注意：空模板本身**应该**校验失败——必填字段为空是设计行为，不是 bug。
+1. `cd discovery-engine && python -m pytest`，确认 42 个测试全绿。
+2. 跑一遍 architecture.md 第 6 节的日常操作序列（用最近一个交易日的日期）。
+   预期：raw/ 下生成两个 JSONL，池里出现 status=lead 的记录，output/weekly/ 生成周报。
+3. 检查 state/classification_queue.jsonl：8.01/5.02/7.01 的 8-K 应该在这里，不在池里。
 
-产出：一句话确认 + 遇到的任何环境问题。
+产出：运行结果摘要 + 各文件行数。遇到 SEC 网络问题记录重试情况。
 
----
+## Task Card D1：ticker resolver
 
-## Task Card D1：EDGAR 8-K 采集器（v1 核心）
+现状：8-K 转换的记录 ticker 字段暂用 CIK。写 `resolvers/cik_ticker.py`：
 
-写 `src/discovery_engine/collectors/edgar_8k.py`：
+- 数据源：https://www.sec.gov/files/company_tickers.json（免费，SEC 官方 CIK↔ticker 映射）。
+- 下载缓存到 `state/cik_ticker_map.json`，带抓取日期，7 天过期重拉。
+- 在 ingest 流程里接入：CIK 能映射的替换成 ticker 并补 exchange；映射不到的保持 CIK 原样
+  （多为私有公司/基金，人工处理）。
+- 走 `RateLimitedFetcher`，测试用 fixture。
 
-- 用 SEC EDGAR full-text search API（`https://efts.sec.gov/LATEST/search-index?q=...&dateRange=...&forms=8-K`）
-  或每日索引文件拉取近 N 天的 8-K。
-- **必须设置 User-Agent 头（SEC 要求，含联系邮箱），限速 <= 10 req/s。**
-- 提取：CIK、ticker、公司名、filing date、8-K Item 编号列表、正文 URL。
-- Item → event_type 映射：1.01 → formal_agreement；2.02 → financial_inflection；
-  5.02/8.01 → 人工分类（先输出到待分类队列）。
-- 输出：原始记录存 `raw/edgar_8k/YYYY-MM-DD.jsonl`（append-only），
-  每条含抓取时间戳和原文 URL。**不做任何评分，采集与判断分离。**
+## Task Card D2：分类队列处理流程
 
-验收：给定一个历史日期能拉回当天 8-K 列表；重复运行不产生重复记录（用 accession number 去重）。
+`state/classification_queue.jsonl` 里是 Item 8.01/5.02/7.01 等需要人工判断的 8-K。写一个辅助命令：
 
-## Task Card D2：EDGAR Form 4 采集器
+- `cli classify --limit 20`：逐条打印 accession、公司、Items、filing URL，
+  读入人工判定的 event_type（或 skip/discard），合法值校验后转成 lead 进池。
+- 处理过的记录从队列移除（重写队列文件，原始 raw 不动）。
+- **不做自动分类**。LLM 辅助分类是未来单独的卡，需要先积累人工标注样本。
 
-同 D1 结构，`collectors/edgar_form4.py`：
+## Task Card D3：USAspending 采集器
 
-- 只保留 transaction code = P（公开市场买入）的记录。
-- 提取：内部人姓名、职务、买入金额、买入后持股变化。
-- 单笔金额 < $50k 或例行 10b5-1 计划买入的，标记 `routine=true`，默认不生成事件。
+`collectors/usaspending.py`，照抄 edgar_8k.py 的结构（fetch 薄、parse 纯、测试用 fixture）：
 
-## Task Card D3：事件转换器
+- API：POST https://api.usaspending.gov/api/v2/search/spending_by_award/（免费无 key）。
+- 按 `time_period` 查新增 prime awards，金额 >= $5M 起步（阈值放常量）。
+- recipient → ticker 映射：维护手工 `state/entity_map.json`，映射不到的进待分类队列，不要猜。
+- event_type = "government_contract"，raw 去重键用 award id。
 
-`extractors/to_candidate.py`：把 raw 记录转成 CandidateRecord（status=lead），
-调用 `dedup.event_fingerprint` 生成指纹，同指纹只保留一条。
-输出 append 到 `state/candidate_pool.jsonl`，之后跑 validate 确认。
+## Task Card D4：定期运行与提交纪律
 
-## Task Card D4：USAspending 采集器
-
-`collectors/usaspending.py`：REST API（免费无 key），按 recipient 查新增合同。
-难点是 recipient 名称 → ticker 的映射，先维护一个手工 `state/entity_map.json`，
-映射不到的进待分类队列，不要猜。
-
-## Task Card D5：周报生成器
-
-`reports/weekly.py`：读 `state/candidate_pool.jsonl`，输出 markdown 周报到
-`output/weekly/YYYY-MM-DD.md`，包含 framework_v0.2.md 第 9 节要求的全部小节
-（新发现、分档变化、新增一级证据、expired 清单、G5 稀释触发清单、推荐进入 3+1 的前 5–10 家）。
+- 写 `scripts/daily_run.py`（或平台等价物）串起 architecture.md 第 6 节的序列。
+- 每次运行后 `git add raw/ state/ output/ && git commit -m "scan(daily): N new leads, M expired"`。
+- 失败重试：SEC 5xx/超时重试 3 次，间隔 30s；仍失败则记录日期到 `state/missed_days.md`，
+  下次运行先补漏。
 
 ---
 
 ## 通用红线（每张卡都适用）
 
-- 不允许编造 URL、日期或摘录；拿不到就写 `[unverified]`，记录留在 lead。
-- 采集器只存事实，不打分。评分是人（或单独任务卡）的事。
-- 所有输出 append-only，不覆盖历史。
-- 改动 models/scoring 的规则必须同时改测试并说明原因。
+- **architecture.md 第 3 节的不变量不许动**；确需改动，PR 里单独说明 + 改测试。
+- 不编造 URL、日期、摘录；拿不到写 `[unverified]`，记录留在 lead。
+- 采集器只存事实，不打分。评分和状态推进是人工环节。
+- 所有输出 append-only 或原子重写（走 storage.py），禁止手写 open() 改池。
+- 新代码风格对齐现有：frozen dataclass、`from __future__ import annotations`、
+  纯函数解析器 + fixture 测试、零第三方依赖。

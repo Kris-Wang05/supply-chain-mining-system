@@ -23,41 +23,43 @@
 ```text
 discovery-engine/
   README.md                    本文件
+  pyproject.toml               打包与 pytest 配置（零第三方依赖）
   docs/
+    architecture.md            模块契约与系统不变量（codex 必读）
     framework_v0.2.md          优化后的完整框架
     data_sources.md            数据源目录（按质量与可机读性分级）
   prompts/
-    codex_task_cards.md        给 codex 的分阶段执行任务卡
+    codex_task_cards.md        给 codex 的执行任务卡 v2
   schemas/
     candidate_record.schema.json
   src/discovery_engine/
-    models.py                  DiscoveryEvent / CandidateRecord 数据模型 + 校验
-    scoring.py                 发现评分 + 门槛分档逻辑
+    models.py                  CandidateRecord 数据模型 + 门槛校验
+    scoring.py                 发现评分 + 门槛分档（G1–G5）
     dedup.py                   事件指纹去重
-    cli.py                     template / validate / score 命令
+    lifecycle.py               状态机 + 自动过期
+    storage.py                 池的原子读写 / 审计日志 / raw 去重
+    collectors/                EDGAR 8-K、Form 4 采集器（SEC 合规限速）
+    extractors/                raw -> lead 转换器
+    reports/                   周报生成器
+    cli.py                     全链路命令
   state/
-    candidate_pool.jsonl       候选池（append-only）
+    candidate_pool.jsonl       候选池（每指纹一行 = 最新状态）
     watchlist.md               观察名单（人读）
-  tests/
-    test_models.py
-    test_scoring.py
-    test_dedup.py
+  tests/                       42 个测试，含真实格式 fixture
 ```
 
 ## 快速使用
 
 ```bash
-# 生成一条候选记录模板
-python -m discovery_engine.cli template --ticker XYZ
-
-# 校验 JSONL
-python -m discovery_engine.cli validate-candidates state/candidate_pool.jsonl
-
-# 计算分档（读 JSONL，输出每条记录的 band）
-python -m discovery_engine.cli score state/candidate_pool.jsonl
+cd discovery-engine
+python -m pytest                                          # 全部测试
+python -m discovery_engine.cli collect-8k --date 2026-07-07   # 采集一天的 8-K
+python -m discovery_engine.cli ingest raw/edgar_8k/2026-07-07.jsonl
+python -m discovery_engine.cli expire                     # 过期清理
+python -m discovery_engine.cli report                     # 生成周报
 ```
 
-运行测试：`python -m pytest discovery-engine/tests`（需将 `discovery-engine/src` 加入 PYTHONPATH）。
+完整操作序列和模块契约见 [docs/architecture.md](docs/architecture.md)。
 
 ## 纪律（继承主仓库 operating_playbook）
 

@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "discovery-engine"
+version = "0.2.0"
+description = "Stock discovery engine: find companies worth researching, hand off to the 3+1 framework"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+discovery-engine = "discovery_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+testpaths = ["tests"]
+addopts = "-q"
