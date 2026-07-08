@@ -97,6 +97,7 @@ def run_collect(day_str: str, raw_dir: Path, kind: str) -> int:
 
 def run_ingest(raw_path: Path, pool_path: Path, queue_path: Path) -> int:
     from discovery_engine.extractors.to_candidate import convert_batch
+    from discovery_engine.resolvers.cik_ticker import load_map
     from discovery_engine.storage import append_raw, load_pool, upsert, write_pool
 
     raws = [
@@ -104,7 +105,8 @@ def run_ingest(raw_path: Path, pool_path: Path, queue_path: Path) -> int:
         for line in raw_path.read_text(encoding="utf-8").splitlines()
         if line.strip()
     ]
-    leads, queue = convert_batch(raws)
+    ticker_map = load_map(Path("state/cik_ticker_map.json"))
+    leads, queue = convert_batch(raws, ticker_map)
     pool = load_pool(pool_path)
     added = 0
     for record in leads:

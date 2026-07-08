@@ -8,10 +8,11 @@ from discovery_engine.models import CandidateRecord
 REVIEW_WINDOW_DAYS = 90
 
 
-def raw_to_lead(raw: dict) -> CandidateRecord | None:
+def raw_to_lead(raw: dict, ticker_map: dict[str, dict[str, str]] | None = None) -> CandidateRecord | None:
     """把一条 raw 采集记录转成 status=lead 的 CandidateRecord。
 
     - 采集器已分类的用其 event_type；needs_classification 的返回 None（进待分类队列）。
+    - ticker_map（resolvers/cik_ticker）能解析的补 ticker/exchange；解析不到保持 CIK。
     - 一切未知字段填 [unverified]，符合 lead 状态的 pending 规则。
     - 上下文调查十问、评分、门槛全部留给后续人工/任务卡，这里只做结构转换。
     """
@@ -20,7 +21,13 @@ def raw_to_lead(raw: dict) -> CandidateRecord | None:
     if not event_type or extra.get("needs_classification"):
         return None
 
-    ticker = extra.get("issuer_ticker") or raw["cik"]  # 8-K 没有 ticker 时先用 CIK，resolver 后补
+    ticker = extra.get("issuer_ticker") or raw["cik"]  # 8-K 没有 ticker 时先用 CIK
+    exchange = "[unverified]"
+    if ticker_map is not None:
+        resolved = ticker_map.get(raw["cik"].lstrip("0") or "0")
+        if resolved and resolved.get("ticker"):
+            ticker = resolved["ticker"]
+            exchange = resolved.get("exchange") or "[unverified]"
     event_date = raw["filed_date"]
     counterparty = extra.get("insider_name") or "[unverified]"
     review_by = (date.fromisoformat(event_date) + timedelta(days=REVIEW_WINDOW_DAYS)).isoformat()
@@ -37,7 +44,7 @@ def raw_to_lead(raw: dict) -> CandidateRecord | None:
         {
             "ticker": ticker,
             "company": raw["company"],
-            "exchange": "[unverified]",
+            "exchange": exchange,
             "country": "US",
             "event_date": event_date,
             "event_type": event_type,
@@ -74,13 +81,15 @@ def raw_to_lead(raw: dict) -> CandidateRecord | None:
     )
 
 
-def convert_batch(raws: list[dict]) -> tuple[list[CandidateRecord], list[dict]]:
+def convert_batch(
+    raws: list[dict], ticker_map: dict[str, dict[str, str]] | None = None
+) -> tuple[list[CandidateRecord], list[dict]]:
     """返回 (转换成功的 leads, 待分类队列)。同批内指纹去重，保留先出现的。"""
     leads: list[CandidateRecord] = []
     queue: list[dict] = []
     seen: set[str] = set()
     for raw in raws:
-        record = raw_to_lead(raw)
+        record = raw_to_lead(raw, ticker_map)
         if record is None:
             queue.append(raw)
         elif record.fingerprint not in seen:
