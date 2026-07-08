@@ -55,6 +55,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     expire_parser.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     expire_parser.add_argument("--today", default=date.today().isoformat())
 
+    classify_parser = subparsers.add_parser(
+        "classify", help="List or resolve the manual classification queue"
+    )
+    classify_parser.add_argument("--queue", type=Path, default=Path("state/classification_queue.jsonl"))
+    classify_parser.add_argument("--pool", type=Path, default=DEFAULT_POOL)
+    classify_parser.add_argument("--limit", type=int, default=20, help="entries to list")
+    classify_parser.add_argument(
+        "--apply", type=Path, default=None,
+        help="JSONL of decisions: {accession, action: <event_type>|discard}",
+    )
+
     report_parser = subparsers.add_parser("report", help="Write the weekly markdown report")
     report_parser.add_argument("--pool", type=Path, default=DEFAULT_POOL)
     report_parser.add_argument("--out-dir", type=Path, default=Path("output/weekly"))
@@ -76,6 +87,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return run_ingest(args.raw_path, args.pool, args.queue)
     if args.command == "expire":
         return run_expire(args.pool, date.fromisoformat(args.today))
+    if args.command == "classify":
+        return run_classify(args.queue, args.pool, args.limit, args.apply)
     if args.command == "report":
         return run_report(args.pool, args.out_dir, date.fromisoformat(args.date))
     parser.error("unknown command")
@@ -129,6 +142,45 @@ def run_expire(pool_path: Path, today: date) -> int:
         pool = upsert(pool, CandidateRecord.from_dict(data))
     write_pool(pool_path, pool, history_path=DEFAULT_HISTORY)
     print(f"expired {len(expired)} records")
+    return 0
+
+
+def run_classify(queue_path: Path, pool_path: Path, limit: int, apply_path: Path | None) -> int:
+    from discovery_engine.extractors.classify import apply_decisions, format_queue_listing, load_queue
+    from discovery_engine.extractors.to_candidate import convert_batch
+    from discovery_engine.resolvers.cik_ticker import load_map
+    from discovery_engine.storage import load_pool, upsert, write_pool
+
+    queue = load_queue(queue_path)
+    if apply_path is None:
+        print(format_queue_listing(queue, limit))
+        return 0
+
+    decisions = [
+        json.loads(line)
+        for line in apply_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    classified, remaining = apply_decisions(queue, decisions)
+    ticker_map = load_map(Path("state/cik_ticker_map.json"))
+    leads, requeued = convert_batch(classified, ticker_map)
+    if requeued:
+        raise ValueError(f"{len(requeued)} classified entries failed conversion")
+
+    pool = load_pool(pool_path)
+    added = 0
+    for record in leads:
+        if record.fingerprint not in pool:
+            pool = upsert(pool, record)
+            added += 1
+    write_pool(pool_path, pool, history_path=DEFAULT_HISTORY)
+    # 队列重写（原始 raw 不动，符合"raw append-only"不变量）
+    queue_path.write_text(
+        "".join(json.dumps(entry, ensure_ascii=False) + "\n" for entry in remaining),
+        encoding="utf-8",
+    )
+    print(f"classified {len(decisions)} decisions: {added} new leads, "
+          f"{len(decisions) - len(classified)} discarded, {len(remaining)} left in queue")
     return 0
 
 
